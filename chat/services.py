@@ -3,6 +3,7 @@ from langchain_chroma import Chroma
 from langchain_core.prompts import PromptTemplate
 import os
 from dotenv import load_dotenv
+import chromadb
 
 load_dotenv()
 
@@ -29,11 +30,17 @@ class AIService:
 
     def _get_vectorstore(self):
         """Initialize ChromaDB vector store for the specific user."""
+        from django.conf import settings
+
+        client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
+
         collection_name = f"user_{self.user.id}_bookshelf"
+
+        # Get or create collection
         return Chroma(
+            client=client,
             collection_name=collection_name,
             embedding_function=self.embeddings,
-            persist_directory="./chroma_db",
         )
 
     def _get_chat_model(self):

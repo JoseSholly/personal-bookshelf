@@ -62,3 +62,7 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+
+
+if not os.getenv("RAILWAY_VOLUME_MOUNT_PATH"):
+    raise RuntimeError("Railway volume mount path not found in production!")

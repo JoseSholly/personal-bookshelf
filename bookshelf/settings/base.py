@@ -135,3 +135,15 @@ AUTHENTICATION_BACKENDS = [
     "accounts.authentication.EmailBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
+
+
+# Default for local/dev (relative to project root)
+CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", str(BASE_DIR / "chroma_db"))
+
+# Railway sets this environment variable automatically when a volume is attached
+# → RAILWAY_VOLUME_MOUNT_PATH=/app/chroma_db   (or whatever you named the mount)
+if railway_mount := os.getenv("RAILWAY_VOLUME_MOUNT_PATH"):
+    CHROMA_PERSIST_DIR = railway_mount
+    print(f"Using Railway volume mount path: {CHROMA_PERSIST_DIR}")
+else:
+    print(f"Using local/dev persist directory: {CHROMA_PERSIST_DIR}")
