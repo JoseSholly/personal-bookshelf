@@ -1,5 +1,5 @@
 from .base import *
-from .env import BASE_DIR
+from ..env import BASE_DIR
 from dotenv import load_dotenv
 from decouple import config
 import os
