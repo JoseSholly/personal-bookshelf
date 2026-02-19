@@ -1,0 +1,13 @@
+{% load static %}
+<!-- AI Response -->
+<div class="flex justify-start fade-in mb-6">
+    <div class="flex max-w-[90%] md:max-w-2xl flex-row gap-x-3">
+        <div class="flex-shrink-0 h-8 w-8 rounded-full bg-accent-100 flex items-center justify-center text-accent-600">
+            <img src="{% static 'images/shelf-logo.png' %}" alt="AI" class="h-5 w-5">
+        </div>
+        <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm ring-1 ring-gray-200 text-sm text-gray-900">
+            <!-- Content to be parsed by Markdown -->
+            <div class="markdown-target">{{ answer }}</div>
+        </div>
+    </div>
+</div>

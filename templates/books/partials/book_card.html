@@ -1,0 +1,55 @@
+<div
+    class="group relative flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white transition-all hover:shadow-md">
+    <div class="aspect-h-4 aspect-w-3 bg-gray-200 sm:aspect-none group-hover:opacity-75 sm:h-64">
+        {% if book.cover_image %}
+        <img src="{{ book.cover_image.url }}" alt="{{ book.title }}"
+            class="h-full w-full object-cover object-center sm:h-full sm:w-full">
+        {% else %}
+        <div class="flex h-full w-full items-center justify-center bg-gray-100 text-gray-400">
+            <img src="https://cdn-icons-png.flaticon.com/128/2702/2702162.png" alt="">
+        </div>
+        {% endif %}
+    </div>
+    <div class="cursor-pointer flex-1 flex flex-col space-y-2 p-4" hx-get="{% url 'book_detail_modal' book.id %}"
+        hx-target="#modal-container" hx-trigger="click">
+        <h3 class="text-lg font-medium text-gray-900">
+            <a href="#" onclick="event.preventDefault()">
+                <span aria-hidden="true" class="absolute inset-0"></span>
+                {{ book.title }}
+            </a>
+        </h3>
+        <p class="text-sm text-gray-500">{{ book.author }}</p>
+        <div class="flex flex-1 flex-col justify-end gap-2">
+            <div class="flex items-center justify-between text-base font-medium text-gray-900">
+                <span
+                    class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
+                    {{ book.genre }}
+                </span>
+                <span class="text-sm text-gray-500">{{ book.publication_year }}</span>
+            </div>
+
+            {% if user.is_authenticated %}
+            {% if book.user_status %}
+            <div class="flex justify-end">
+                <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset
+                            {% if book.user_status == 'reading' %}bg-blue-50 text-blue-700 ring-blue-600/20
+                            {% elif book.user_status == 'read' %}bg-green-50 text-green-700 ring-green-600/20
+                            {% elif book.user_status == 'want_to_read' %}bg-yellow-50 text-yellow-700 ring-yellow-600/20
+                            {% else %}bg-gray-50 text-gray-600 ring-gray-500/10{% endif %}">
+                    {% if book.user_status == 'reading' %}Reading
+                    {% elif book.user_status == 'read' %}Read
+                    {% elif book.user_status == 'want_to_read' %}Want to Read
+                    {% else %}{{ book.user_status|title }}{% endif %}
+                </span>
+            </div>
+            {% else %}
+            <button hx-post="{% url 'add_to_shelf' book.id %}" hx-target="#modal-container" hx-swap="innerHTML"
+                onclick="event.stopPropagation()"
+                class="w-full rounded-md bg-accent-700 text-white px-2.5 py-1.5 text-sm font-semibold shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 block text-center">
+                Add to Shelf
+            </button>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
