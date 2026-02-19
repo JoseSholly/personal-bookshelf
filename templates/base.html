@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+{% load static %}
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Personal Bookshelf{% endblock %}</title>
+
+    <!-- Tailwind CSS v4 CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        accent: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            200: '#c7d2fe',
+                            300: '#a5b4fc',
+                            400: '#818cf8',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                            900: '#312e81',
+                            950: '#1e1b4b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@2.0.1"></script>
+
+    <!-- Alpine.js for client interactivity -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body class="min-h-screen bg-gray-50 text-gray-900 antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    {% block navbar %}
+    <!-- Top Navigation -->
+    <header class="border-b border-gray-200 bg-white" x-data="{ mobileMenuOpen: false }">
+        <nav class="mx-auto flex max-w-7xl items-center justify-between p-4 lg:px-8" aria-label="Global">
+            <div class="flex lg:flex-1">
+                <a href="{% url 'home' %}" class="-m-1.5 p-1.5 flex items-center gap-2">
+                    <img src="{% static 'images/shelf-logo.png' %}" alt="Logo" class="h-11 w-11">
+                    <span class="text-xl font-semibold tracking-tight text-gray-900">Personal Bookshelf</span>
+                </a>
+            </div>
+            <div class="flex lg:hidden">
+                <button type="button" @click="mobileMenuOpen = true"
+                    class="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700">
+                    <span class="sr-only">Open main menu</span>
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                        aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                    </svg>
+                </button>
+            </div>
+            <div class="hidden lg:flex lg:gap-x-6 lg:items-center">
+                {% if user.is_authenticated %}
+                <a href="{% url 'book_list' %}"
+                    class="text-sm font-semibold leading-6 text-gray-900 hover:text-accent-600 transition-colors">
+                    Library
+                </a>
+                <a href="{% url 'user_bookshelf' %}"
+                    class="text-sm font-semibold leading-6 text-gray-900 hover:text-accent-600 transition-colors">
+                    My Shelf
+                </a>
+                <a href="{% url 'chat' %}"
+                    class="text-sm font-semibold leading-6 text-gray-900 hover:text-accent-600 transition-colors">
+                    AI Assistant
+                </a>
+                <form action="{% url 'logout' %}" method="post" class="inline">
+                    {% csrf_token %}
+                    <button type="submit"
+                        class="text-sm font-semibold leading-6 text-gray-900 hover:text-accent-600 transition-colors">
+                        Logout
+                    </button>
+                </form>
+                {% else %}
+                <a href="{% url 'login' %}"
+                    class="text-sm font-semibold leading-6 text-gray-900 hover:text-accent-600 transition-colors">
+                    Sign in
+                </a>
+                <a href="{% url 'signup' %}"
+                    class="rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-500 transition-colors">
+                    Sign up
+                </a>
+                {% endif %}
+            </div>
+        </nav>
+        <!-- Mobile menu, show/hide based on menu state. -->
+        <div class="lg:hidden" role="dialog" aria-modal="true" x-show="mobileMenuOpen" style="display: none;">
+            <!-- Background backdrop, show/hide based on slide-over state. -->
+            <div class="fixed inset-0 z-50"></div>
+            <div
+                class="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
+                <div class="flex items-center justify-between">
+                    <a href="{% url 'home' %}" class="-m-1.5 p-1.5 flex items-center gap-2">
+                        <img src="{% static 'images/shelf-logo.png' %}" alt="Logo" class="h-11 w-11">
+                        <span class="text-xl font-bold tracking-tight text-gray-900">Personal Bookshelf</span>
+                    </a>
+                    <button type="button" @click="mobileMenuOpen = false" class="-m-2.5 rounded-md p-2.5 text-gray-700">
+                        <span class="sr-only">Close menu</span>
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                            aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="mt-6 flow-root">
+                    <div class="-my-6 divide-y divide-gray-500/10">
+                        <div class="space-y-2 py-6">
+                            {% if user.is_authenticated %}
+                            <a href="{% url 'book_list' %}"
+                                class="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
+                                Library
+                            </a>
+                            <a href="{% url 'user_bookshelf' %}"
+                                class="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
+                                My Shelf
+                            </a>
+                            <a href="{% url 'chat' %}"
+                                class="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
+                                AI Assistant
+                            </a>
+                            <form action="{% url 'logout' %}" method="post"
+                                class="-mx-3 block rounded-lg px-3 py-2 hover:bg-gray-50">
+                                {% csrf_token %}
+                                <button type="submit"
+                                    class="w-full text-left text-base font-semibold leading-7 text-gray-900">
+                                    Logout
+                                </button>
+                            </form>
+                            {% else %}
+                            <a href="{% url 'login' %}"
+                                class="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
+                                Sign in
+                            </a>
+                            <a href="{% url 'signup' %}"
+                                class="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50">
+                                Sign up
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    {% endblock %}
+
+    <!-- Main Content -->
+    <main class="mx-auto max-w-7xl px-2 md:px-4 py-8 lg:px-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Global Modal Container -->
+    <div id="modal-container" aria-live="off" class="relative z-50"></div>
+
+    <!-- Toast Notification -->
+    <div x-data="{ show: false, message: '', type: 'success' }"
+        @toast-message.window="show = true; message = $event.detail.message; type = $event.detail.type || 'success'; setTimeout(() => show = false, 3000)"
+        x-show="show" x-transition:enter="transform ease-out duration-300 transition"
+        x-transition:enter-start="translate-y-2 opacity-0 sm:translate-y-0 sm:translate-x-2"
+        x-transition:enter-end="translate-y-0 opacity-100 sm:translate-x-0"
+        x-transition:leave="transition ease-in duration-100" x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed bottom-4 right-4 z-50 w-full max-w-sm overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-black ring-opacity-5"
+        style="display: none;">
+        <div class="p-4">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <template x-if="type === 'success'">
+                        <svg class="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </template>
+                    <template x-if="type === 'error'">
+                        <svg class="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                        </svg>
+                    </template>
+                </div>
+                <div class="ml-3 min-w-0 flex-1 pt-0.5">
+                    <p class="text-sm font-medium text-gray-900 break-words" x-text="message"></p>
+                </div>
+                <div class="ml-4 flex flex-shrink-0">
+                    <button type="button" @click="show = false"
+                        class="inline-flex rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2">
+                        <span class="sr-only">Close</span>
+                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path
+                                d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

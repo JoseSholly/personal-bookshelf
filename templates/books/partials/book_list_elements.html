@@ -1,0 +1,13 @@
+{% for book in books %}
+{% if forloop.last and page_obj.has_next %}
+<!-- Last element triggers loading the next page -->
+<div hx-get="{% url 'book_list' %}?page={{ page_obj.next_page_number }}" hx-trigger="revealed" hx-swap="afterend"
+    hx-target="this">
+    {% include "books/partials/book_card.html" %}
+</div>
+{% else %}
+<div>
+    {% include "books/partials/book_card.html" %}
+</div>
+{% endif %}
+{% endfor %}

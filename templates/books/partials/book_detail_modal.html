@@ -1,0 +1,95 @@
+<div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+    <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"
+            onclick="this.closest('.fixed.inset-0').parentElement.parentElement.remove()"></div>
+
+        <div
+            class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+            <div class="absolute right-0 top-0 hidden pr-4 pt-4 sm:block">
+                <button type="button"
+                    class="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+                    onclick="this.closest('.relative').parentElement.parentElement.remove()">
+                    <span class="sr-only">Close</span>
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                        aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="bg-white">
+                <div class="grid grid-cols-1 sm:grid-cols-3">
+                    <!-- Book Cover -->
+                    <div class="bg-gray-100 sm:col-span-1 p-6 flex items-center justify-center">
+                        {% if book.cover_image %}
+                        <img src="{{ book.cover_image.url }}" alt="{{ book.title }}"
+                            class="shadow-lg rounded max-h-64 object-cover">
+                        {% else %}
+                        <div class="h-56 w-56 flex items-center justify-center text-gray-400">
+                            <img src="https://cdn-icons-png.flaticon.com/128/2702/2702162.png" alt="No cover"
+                                class="h-12 w-12">
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Book Details -->
+                    <div class="sm:col-span-2 p-6 sm:p-8">
+                        <h3
+                            class="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight mb-2">
+                            {{ book.title }}
+                        </h3>
+                        <p class="text-lg text-gray-500 mb-4">{{ book.author }}</p>
+
+                        <div class="flex flex-wrap gap-2 mb-6">
+                            <span
+                                class="inline-flex items-center rounded-full bg-accent-100 px-3 py-0.5 text-sm font-medium text-accent-800">
+                                {{ book.genre }}
+                            </span>
+                            <span
+                                class="inline-flex items-center rounded-full bg-gray-100 px-3 py-0.5 text-sm font-medium text-gray-800">
+                                {{ book.publication_year }}
+                            </span>
+                        </div>
+
+                        <div class="prose prose-sm text-gray-500 mb-8 max-h-48 overflow-y-auto">
+                            <p>{{ book.description|default:"No description available." }}</p>
+                        </div>
+
+                        <div class="flex items-center gap-4">
+                            {% if user.is_authenticated %}
+                            {% if user_book %}
+                            <span
+                                class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20 mr-2">
+                                On your shelf
+                            </span>
+                            <button type="button"
+                                class="inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                                hx-get="{% url 'edit_user_book' user_book.id %}" hx-target="#modal-container"
+                                hx-swap="innerHTML">
+                                Edit Status
+                            </button>
+                            {% else %}
+                            <button type="button"
+                                class="inline-flex items-center rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-accent-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600"
+                                hx-get="{% url 'add_to_shelf' book.id %}" hx-target="#modal-container"
+                                hx-swap="innerHTML">
+                                Add to Shelf
+                            </button>
+                            {% endif %}
+                            {% else %}
+                            <a href="{% url 'login' %}"
+                                class="inline-flex items-center rounded-md bg-accent-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-accent-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600">
+                                Sign in to Add
+                            </a>
+                            {% endif %}
+                            <button type="button" class="text-sm font-semibold leading-6 text-gray-900"
+                                onclick="this.closest('.relative').parentElement.parentElement.remove()">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- Page Header -->
+    <div class="md:flex md:items-center md:justify-between">
+        <div class="min-w-0 flex-1">
+            <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
+                Library
+            </h2>
+            <p class="mt-1 text-sm text-gray-500">
+                Explore the collection of books available in the system.
+            </p>
+        </div>
+        <div class="mt-4 flex md:ml-4 md:mt-0">
+            <div class="relative">
+                <input type="search" name="q" placeholder="Search books..."
+                    class="block w-full rounded-md border-0 py-1.5 pl-10 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-accent-600 sm:text-sm sm:leading-6"
+                    hx-get="{% url 'book_list' %}" hx-trigger="keyup[key=='Enter'], search" hx-target="#book-grid"
+                    hx-select="#book-grid" hx-swap="outerHTML" hx-push-url="true">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <svg class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd"
+                            d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z"
+                            clip-rule="evenodd" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Book Grid -->
+    <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" id="book-grid">
+        {% for book in books %}
+        {% if forloop.last and page_obj.has_next %}
+        <!-- Last element triggers loading the next page -->
+        <div hx-get="{% url 'book_list' %}?page={{ page_obj.next_page_number }}{% if view.request.GET.q %}&q={{ view.request.GET.q }}{% endif %}"
+            hx-trigger="revealed" hx-swap="afterend" hx-target="this">
+            {% include "books/partials/book_card.html" %}
+        </div>
+        {% else %}
+        <div>
+            {% include "books/partials/book_card.html" %}
+        </div>
+        {% endif %}
+        {% empty %}
+        <div class="col-span-full flex flex-col items-center justify-center py-12 text-center">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                aria-hidden="true">
+                <path vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 6.095V10.75m0 5.25v.008M12 6.253C6.5 6.253 2 10.998 2 17s4.5 10.747 10 10.747c5.5 0 10-4.998 10-10.747S17.5 6.253 12 6.253z" />
+            </svg>
+            <h3 class="mt-2 text-sm font-semibold text-gray-900">No books found</h3>
+            <p class="mt-1 text-sm text-gray-500">Get started by running the seed command to populate the library.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Hidden loading indicator could be added here if desired -->
+</div>
+{% endblock %}
