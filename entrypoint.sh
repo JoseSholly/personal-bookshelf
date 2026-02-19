@@ -9,6 +9,9 @@ python manage.py migrate --noinput
 # Collect static files
 python manage.py collectstatic --noinput
 
+# Seed database
+python manage.py seed_books
+
 echo "Entrypoint complete — executing command"
 
 # Start WSGI
