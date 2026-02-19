@@ -20,14 +20,14 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 tmpPostgres = urlparse(os.getenv("DATABASE_URL"))
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': tmpPostgres.path.replace('/', ''),
-        'USER': tmpPostgres.username,
-        'PASSWORD': tmpPostgres.password,
-        'HOST': tmpPostgres.hostname,
-        'PORT': tmpPostgres.port,
-        'OPTIONS': dict(parse_qsl(tmpPostgres.query)),
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": tmpPostgres.path.replace("/", ""),
+        "USER": tmpPostgres.username,
+        "PASSWORD": tmpPostgres.password,
+        "HOST": tmpPostgres.hostname,
+        "PORT": tmpPostgres.port,
+        "OPTIONS": dict(parse_qsl(tmpPostgres.query)),
     }
 }
 
@@ -57,7 +57,7 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
-SECURE_HSTS_SECONDS = 31536000          # 1 year
+SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SESSION_COOKIE_SECURE = True
@@ -66,3 +66,10 @@ CSRF_COOKIE_SECURE = True
 
 if not os.getenv("RAILWAY_VOLUME_MOUNT_PATH"):
     raise RuntimeError("Railway volume mount path not found in production!")
+
+
+# Railway sets this environment variable automatically when a volume is attached
+# → RAILWAY_VOLUME_MOUNT_PATH=/app/chroma_db   (or whatever you named the mount)
+if railway_mount := os.getenv("RAILWAY_VOLUME_MOUNT_PATH"):
+    CHROMA_PERSIST_DIR = railway_mount
+    print(f"Using Railway volume mount path: {CHROMA_PERSIST_DIR}")

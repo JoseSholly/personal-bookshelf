@@ -1,1 +1,1 @@
-web: gunicorn bookshelf.wsgi:application --bind 0.0.0.0:$PORT --access-logfile -
+web: gunicorn bookshelf.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --threads 10 --timeout 300 --access-logfile -

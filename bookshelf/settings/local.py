@@ -36,4 +36,4 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 STATIC_URL = "/static/"
 
-CHROMA_PERSIST_DIR = str(BASE_DIR / "chroma_local_dev")
+CHROMA_PERSIST_DIR = str(BASE_DIR / "chroma_db")
