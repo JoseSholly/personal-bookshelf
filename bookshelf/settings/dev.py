@@ -1,7 +1,6 @@
 from .base import *
 from ..env import BASE_DIR
 from dotenv import load_dotenv
-from decouple import config
 import os
 from urllib.parse import parse_qsl, urlparse
 
@@ -64,12 +63,4 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
 
-if not os.getenv("RAILWAY_VOLUME_MOUNT_PATH"):
-    raise RuntimeError("Railway volume mount path not found in production!")
-
-
-# Railway sets this environment variable automatically when a volume is attached
-# → RAILWAY_VOLUME_MOUNT_PATH=/app/chroma_db   (or whatever you named the mount)
-if railway_mount := os.getenv("RAILWAY_VOLUME_MOUNT_PATH"):
-    CHROMA_PERSIST_DIR = railway_mount
-    print(f"Using Railway volume mount path: {CHROMA_PERSIST_DIR}")
+# pgvector is used for embeddings — no Railway volume or CHROMA_PERSIST_DIR needed.

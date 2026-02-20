@@ -1,52 +1,52 @@
-# services.py
-from django.conf import settings
 import os
+import logging
+from typing import List, Optional
+
 from dotenv import load_dotenv
 
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_chroma import Chroma
-from langchain_core.prompts import PromptTemplate
-import chromadb
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+from pgvector.django import CosineDistance
 
 load_dotenv()
 
-# ─── Module-level (singleton) heavy objects ──────────────────────────────
-# These are loaded only once when the module is first imported (per worker)
+logger = logging.getLogger(__name__)
+
+# ─── Module-level singletons ────────────────────────────────────────────────
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if not GOOGLE_API_KEY:
     raise ValueError("GOOGLE_API_KEY environment variable is not set")
 
+EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIMENSIONS", "768"))
 
-# Embeddings – shared across all instances
-embeddings = GoogleGenerativeAIEmbeddings(
+# Shared models
+_embeddings = GoogleGenerativeAIEmbeddings(
     model="models/gemini-embedding-001",
     google_api_key=GOOGLE_API_KEY,
+    dimensions=EMBEDDING_DIM,
 )
 
-
-# Shared persistent Chroma client
-_chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PERSIST_DIR)
-
-
-# LLM – shared, with controlled output length
 _llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
-    temperature=0.6,
+    model="gemini-2.5-flash",        
+    temperature=0.5,
     top_p=0.9,
+    max_output_tokens=450,
     google_api_key=GOOGLE_API_KEY,
 )
 
+# ─── Prompts ────────────────────────────────────────────────────────────────
 
-# Prompt template – also shared
-_PROMPT_TEMPLATE = PromptTemplate.from_template(
+RETRIEVAL_PROMPT = PromptTemplate.from_template(
     """You are a concise book companion who knows the user's reading history.
 
 Rules:
 - Keep answers short: 100–400 characters when possible.
 - Never exceed 600 characters unless the question clearly needs detail.
 - Use bullet points or short paragraphs — avoid long blocks.
-- Be spoiler-free unless the user explicitly asks for spoilers.
+- Be spoiler-free unless explicitly asked for spoilers.
 - Personalize using the provided context when relevant.
 - For general questions, answer briefly using your knowledge.
 
@@ -58,66 +58,186 @@ Question: {question}
 Answer (stay concise):"""
 )
 
+QUERY_REWRITE_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", """You help improve retrieval from a user's personal bookshelf.
+The data contains only: title, author, genre, year, status (want_to_read/reading/read), rating (0-5 or null), short user notes.
+
+Rewrite the original question into 2–3 short, keyword-rich versions optimized for semantic search.
+Focus especially on status, rating level, genre, and any mentioned books/authors.
+Output only the rewritten queries, one per line."""),
+    ("human", "{question}")
+])
+
+RERANK_PROMPT = ChatPromptTemplate.from_messages([
+    ("system", """You are a relevance judge.
+Given a user question and a book entry, assign a relevance score 0–10.
+- 10 = perfectly matches what the user is asking for
+- 5  = somewhat related
+- 0  = completely unrelated
+
+Output ONLY the score as integer."""),
+    ("human", "Question: {question}\n\nBook entry:\n{content}\n\nScore:")
+])
+
+# ─── Helpers ────────────────────────────────────────────────────────────────
+
+def _embed_text(text: str, is_query: bool = False) -> List[float]:
+    task = "retrieval_query" if is_query else "retrieval_document"
+    try:
+        return _embeddings.embed_query(text, task_type=task, output_dimensionality=EMBEDDING_DIM)
+    except Exception as e:
+        logger.error(f"Embedding failed: {e}", exc_info=True)
+        return [0.0] * EMBEDDING_DIM   # fallback
+
 
 class AIService:
-    """Service to handle AI chat interactions using LangChain + Google Gemini."""
+    """Service to handle AI chat interactions using LangChain + pgvector."""
 
     def __init__(self, user):
         self.user = user
-        self.vectorstore = self._get_vectorstore()
 
-    def _get_vectorstore(self):
-        """Get or create per-user Chroma collection using shared client."""
-        collection_name = f"user_{self.user.id}_bookshelf"
+    def _log_retrieved_docs(self, docs: List, label: str = "Retrieved"):
+        """Helpful for learning & debugging"""
+        if not docs:
+            logger.info(f"{label}: no documents found")
+            return
 
-        return Chroma(
-            client=_chroma_client,  # ← shared client
-            collection_name=collection_name,
-            embedding_function=embeddings,  # ← shared embeddings
-        )
+        logger.info(f"{label} ({len(docs)} documents):")
+        for i, doc in enumerate(docs, 1):
+            distance = getattr(doc, 'distance', None)
+            logger.debug(f"  {i}. distance={distance:.4f} | {doc.content[:180]}...")
 
-    def get_context(self, question, k=4):  # ← reduced from 6 → 4
-        """Retrieve relevant context from the vector store."""
-        retriever = self.vectorstore.as_retriever(
-            search_kwargs={"k": k, "filter": {"user_id": self.user.id}}
-        )
-        docs = retriever.invoke(question)
-        return "\n\n".join(d.page_content for d in docs)
+    def _parse_status_filter(self, question: str) -> Optional[str]:
+        q = question.lower()
+        if any(w in q for w in ["read", "finished", "completed"]):
+            return "read"
+        if any(w in q for w in ["reading", "currently reading"]):
+            return "reading"
+        if any(w in q for w in ["want to read", "to-read", "plan", "future"]):
+            return "want_to_read"
+        return None
 
-    def ask(self, question):
-        """Process the user's question and generate an answer."""
+    def _parse_genre_filter(self, question: str) -> Optional[str]:
+        q = question.lower()
+        common_genres = ["sci-fi", "science fiction", "fantasy", "mystery", "thriller", "romance", "non-fiction"]
+        for g in common_genres:
+            if g in q:
+                return g.replace(" ", "").replace("-", "")  # normalize
+        return None
+
+    def get_context(self, question: str, k: int = 6) -> str:
+        """Improved retrieval with query rewriting + filtering + reranking"""
+        from books.models import BookEmbedding
+
+        # 1. Try to extract explicit filters from question
+        status_filter = self._parse_status_filter(question)
+        genre_filter = self._parse_genre_filter(question)
+
+        # 2. Generate better retrieval queries
+        try:
+            rewrite_chain = QUERY_REWRITE_PROMPT | _llm | StrOutputParser()
+            rewritten = rewrite_chain.invoke({"question": question})
+            queries = [q.strip() for q in rewritten.split("\n") if q.strip()][:3]
+            if not queries:
+                queries = [question]
+            logger.debug(f"Rewritten queries: {queries}")
+        except Exception as e:
+            logger.warning(f"Query rewrite failed: {e}")
+            queries = [question]
+
+        # 3. Retrieve candidates (over-retrieve)
+        all_docs = []
+        base_qs = BookEmbedding.objects.filter(user=self.user)
+
+        if status_filter:
+            base_qs = base_qs.filter(user_book__status=status_filter)
+        if genre_filter:
+            base_qs = base_qs.filter(user_book__book__genre__icontains=genre_filter)
+
+        for q in queries:
+            try:
+                vec = _embed_text(q, is_query=True)
+                results = (
+                    base_qs.annotate(distance=CosineDistance("embedding", vec))
+                    .order_by("distance")[:12]   # over-retrieve
+                )
+                all_docs.extend(results)
+            except Exception as e:
+                logger.error(f"Vector search failed for query '{q}': {e}")
+
+        # Deduplicate
+        unique = {r.id: r for r in all_docs}.values()
+        self._log_retrieved_docs(unique, "Candidates before rerank")
+
+        # 4. Lightweight reranking with LLM
+        ranked = []
+        for doc in unique:
+            try:
+                score_chain = RERANK_PROMPT | _llm | StrOutputParser()
+                raw_score = score_chain.invoke({
+                    "question": question,
+                    "content": doc.content
+                }).strip()
+                score = int(raw_score) if raw_score.isdigit() else 5
+                ranked.append((score, doc))
+            except Exception as e:
+                logger.error(f"Reranking failed for doc '{doc.content}': {e}")
+                ranked.append((3, doc))  # fallback
+
+        # Sort descending by score, then take top k
+        ranked.sort(key=lambda x: x[0], reverse=True)
+        top_docs = [doc for _, doc in ranked[:k]]
+
+        self._log_retrieved_docs(top_docs, "After reranking")
+
+        if not top_docs:
+            return ""
+
+        return "\n\n".join(r.content for r in top_docs)
+
+    def ask(self, question: str) -> str:
+        """Process the user's question and return a single answer."""
         context = self.get_context(question)
-        chain = _PROMPT_TEMPLATE | _llm  # ← uses shared LLM
-        response = chain.invoke({"context": context, "question": question})
-        return response.content
+        chain = RETRIEVAL_PROMPT | _llm | StrOutputParser()
+        try:
+            answer = chain.invoke({"context": context, "question": question})
+            return answer
+        except Exception as e:
+            logger.error(f"Generation failed: {e}", exc_info=True)
+            return "Sorry, I couldn't generate an answer right now."
 
-    def stream_ask(self, question):
-        """Process the user's question and stream the answer."""
+    def stream_ask(self, question: str):
+        """Stream the answer token by token."""
         context = self.get_context(question)
-        chain = _PROMPT_TEMPLATE | _llm
-        for chunk in chain.stream({"context": context, "question": question}):
-            yield chunk.content
+        chain = RETRIEVAL_PROMPT | _llm
+        try:
+            for chunk in chain.stream({"context": context, "question": question}):
+                yield chunk.content
+        except Exception as e:
+            logger.error(f"Streaming failed: {e}")
+            yield "Error during streaming."
 
-    def add_user_book_to_vectorstore(self, instance):
-        """Embed and add a UserBook instance to the vector store."""
+    def add_user_book_to_vectorstore(self, instance) -> None:
+        """Embed and upsert UserBook entry into pgvector."""
+        from books.models import BookEmbedding
+
         doc_text = (
             f"Book: {instance.book.title} by {instance.book.author}. "
+            f"Genre: {instance.book.genre}. "
+            f"Year: {instance.book.publication_year or 'unknown'}. "
             f"Status: {instance.status}. "
             f"Rating: {instance.rating or 'None'}. "
-            f"Notes: {instance.notes or 'No notes'}. "
-            f"Description: {instance.book.description}"
+            f"Notes: {instance.notes or 'No notes'}."
         )
 
-        unique_id = f"userbook_{instance.id}"
+        vector = _embed_text(doc_text)
 
-        self.vectorstore.add_texts(
-            texts=[doc_text],
-            metadatas=[
-                {
-                    "user_id": self.user.id,
-                    "book_id": instance.book.id,
-                    "type": "user_book",
-                }
-            ],
-            ids=[unique_id],
+        BookEmbedding.objects.update_or_create(
+            user_book=instance,
+            defaults={
+                "user": instance.user,
+                "content": doc_text,
+                "embedding": vector,
+            },
         )
+        logger.info("Upserted embedding for UserBook %s (user=%s)", instance.id, self.user.id)

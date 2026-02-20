@@ -13,8 +13,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-local-key")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
-
+ALLOWED_HOSTS = ["*"]
 
 
 DATABASES = {
@@ -36,4 +35,4 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 STATIC_URL = "/static/"
 
-CHROMA_PERSIST_DIR = str(BASE_DIR / "chroma_db")
+# pgvector is used for embeddings — no separate persist directory needed.
