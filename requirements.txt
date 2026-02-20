@@ -4,14 +4,11 @@ psycopg2-binary==2.9.11
 python-dotenv==1.2.1
 langchain==1.2.10
 langchain-google-genai==4.2.0
-langchain-postgres
-httpx==0.28.1
+httpx
 django-htmx==1.27.0
 dj-database-url==3.1.1
-django-jazzmin==3.0.2
-google-generativeai==0.8.6
 python-decouple==3.8
 brotli==1.2.0
 whitenoise==6.11.0
 gunicorn==25.1.0
-pgvector==0.4.0
+pgvector>=0.3.0
