@@ -109,7 +109,6 @@ class AIService:
         self.user = user
 
     def _log_retrieved_docs(self, docs: List, label: str = "Retrieved"):
-        """Helpful for learning & debugging"""
         if not docs:
             logger.info(f"{label}: no documents found")
             return
@@ -117,8 +116,10 @@ class AIService:
         logger.info(f"{label} ({len(docs)} documents):")
         for i, doc in enumerate(docs, 1):
             distance = getattr(doc, "distance", None)
-            logger.debug(f"  {i}. distance={distance:.4f} | {doc.content[:180]}...")
 
+            dist_str = f"{distance:.4f}" if distance is not None else "—     "
+
+            logger.debug(f"  {i}. distance={dist_str} | {doc.content[:180]}...")
     def _parse_status_filter(self, question: str) -> Optional[str]:
         q = question.lower()
         # Check more specific phrases first to avoid substring collisions
