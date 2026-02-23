@@ -30,7 +30,7 @@ _embeddings = GoogleGenerativeAIEmbeddings(
 )
 
 _llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",        
+    model="gemini-2.5-flash",
     temperature=0.5,
     top_p=0.9,
     google_api_key=GOOGLE_API_KEY,
@@ -57,36 +57,49 @@ Question: {question}
 Answer (stay concise):"""
 )
 
-QUERY_REWRITE_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", """You help improve retrieval from a user's personal bookshelf.
-The data contains only: title, author, genre, year, status (want_to_read/reading/read), rating (0-5 or null), short user notes.
+QUERY_REWRITE_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You help improve retrieval from a user's personal bookshelf.
+The data contains: title, author, genre, year, status (want_to_read/reading/read), rating (0-5 or null), short user notes, and date_updated (when the entry was last changed).
 
 Rewrite the original question into 2–3 short, keyword-rich versions optimized for semantic search.
-Focus especially on status, rating level, genre, and any mentioned books/authors.
-Output only the rewritten queries, one per line."""),
-    ("human", "{question}")
-])
+Focus especially on status, rating level, genre, date_updated, and any mentioned books/authors.
+Output only the rewritten queries, one per line.""",
+        ),
+        ("human", "{question}"),
+    ]
+)
 
-RERANK_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", """You are a relevance judge.
+RERANK_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You are a relevance judge.
 Given a user question and a book entry, assign a relevance score 0–10.
 - 10 = perfectly matches what the user is asking for
 - 5  = somewhat related
 - 0  = completely unrelated
 
-Output ONLY the score as integer."""),
-    ("human", "Question: {question}\n\nBook entry:\n{content}\n\nScore:")
-])
+Output ONLY the score as integer.""",
+        ),
+        ("human", "Question: {question}\n\nBook entry:\n{content}\n\nScore:"),
+    ]
+)
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
+
 
 def _embed_text(text: str, is_query: bool = False) -> List[float]:
     task = "retrieval_query" if is_query else "retrieval_document"
     try:
-        return _embeddings.embed_query(text, task_type=task, output_dimensionality=EMBEDDING_DIM)
+        return _embeddings.embed_query(
+            text, task_type=task, output_dimensionality=EMBEDDING_DIM
+        )
     except Exception as e:
         logger.error(f"Embedding failed: {e}", exc_info=True)
-        return [0.0] * EMBEDDING_DIM   # fallback
+        return [0.0] * EMBEDDING_DIM  # fallback
 
 
 class AIService:
@@ -103,22 +116,60 @@ class AIService:
 
         logger.info(f"{label} ({len(docs)} documents):")
         for i, doc in enumerate(docs, 1):
-            distance = getattr(doc, 'distance', None)
+            distance = getattr(doc, "distance", None)
             logger.debug(f"  {i}. distance={distance:.4f} | {doc.content[:180]}...")
 
     def _parse_status_filter(self, question: str) -> Optional[str]:
         q = question.lower()
-        if any(w in q for w in ["read", "finished", "completed"]):
-            return "read"
-        if any(w in q for w in ["reading", "currently reading"]):
+        # Check more specific phrases first to avoid substring collisions
+        # ("reading" contains "read", so check for reading/currently reading first)
+        if any(w in q for w in ["currently reading", "still reading", "am reading"]):
             return "reading"
-        if any(w in q for w in ["want to read", "to-read", "plan", "future"]):
+        if any(w in q for w in ["want to read", "to-read", "plan to read", "future"]):
             return "want_to_read"
+        if any(
+            w in q
+            for w in [
+                "finished",
+                "completed",
+                "already read",
+                "have read",
+                "last read",
+                "most recent",
+                "recently read",
+            ]
+        ):
+            return "read"
         return None
+
+    def _is_recency_query(self, question: str) -> bool:
+        """Detect questions specifically about the most recent book."""
+        q = question.lower()
+        recency_phrases = [
+            "last read",
+            "most recent",
+            "recently read",
+            "latest read",
+            "last book",
+            "latest book",
+            "most recently",
+            "just finished",
+            "last finished",
+            "just read",
+        ]
+        return any(phrase in q for phrase in recency_phrases)
 
     def _parse_genre_filter(self, question: str) -> Optional[str]:
         q = question.lower()
-        common_genres = ["sci-fi", "science fiction", "fantasy", "mystery", "thriller", "romance", "non-fiction"]
+        common_genres = [
+            "sci-fi",
+            "science fiction",
+            "fantasy",
+            "mystery",
+            "thriller",
+            "romance",
+            "non-fiction",
+        ]
         for g in common_genres:
             if g in q:
                 return g.replace(" ", "").replace("-", "")  # normalize
@@ -128,11 +179,29 @@ class AIService:
         """Improved retrieval with query rewriting + filtering + reranking"""
         from books.models import BookEmbedding
 
-        # 1. Try to extract explicit filters from question
+        # 1. Short-circuit for recency questions — order by date_updated, not cosine distance.
+        #    Vector search cannot reliably answer "which was last?" because recency is
+        #    a metadata property, not a semantic one.
+        if self._is_recency_query(question):
+            status_filter = self._parse_status_filter(question)
+            recency_qs = BookEmbedding.objects.filter(user=self.user)
+            if status_filter:
+                recency_qs = recency_qs.filter(user_book__status=status_filter)
+            else:
+                # Default to books that have been read when asking about "last read"
+                recency_qs = recency_qs.filter(user_book__status="read")
+
+            recent_docs = list(recency_qs.order_by("-user_book__date_updated")[:k])
+            self._log_retrieved_docs(
+                recent_docs, "Recency query — ordered by date_updated"
+            )
+            return "\n\n".join(r.content for r in recent_docs) if recent_docs else ""
+
+        # 2. Try to extract explicit filters from question
         status_filter = self._parse_status_filter(question)
         genre_filter = self._parse_genre_filter(question)
 
-        # 2. Generate better retrieval queries
+        # 3. Generate better retrieval queries
         try:
             rewrite_chain = QUERY_REWRITE_PROMPT | _llm | StrOutputParser()
             rewritten = rewrite_chain.invoke({"question": question})
@@ -144,7 +213,7 @@ class AIService:
             logger.warning(f"Query rewrite failed: {e}")
             queries = [question]
 
-        # 3. Retrieve candidates (over-retrieve)
+        # 4. Retrieve candidates (over-retrieve)
         all_docs = []
         base_qs = BookEmbedding.objects.filter(user=self.user)
 
@@ -156,10 +225,11 @@ class AIService:
         for q in queries:
             try:
                 vec = _embed_text(q, is_query=True)
-                results = (
-                    base_qs.annotate(distance=CosineDistance("embedding", vec))
-                    .order_by("distance")[:12]   # over-retrieve
-                )
+                results = base_qs.annotate(
+                    distance=CosineDistance("embedding", vec)
+                ).order_by("distance")[
+                    :12
+                ]  # over-retrieve
                 all_docs.extend(results)
             except Exception as e:
                 logger.error(f"Vector search failed for query '{q}': {e}")
@@ -168,15 +238,14 @@ class AIService:
         unique = {r.id: r for r in all_docs}.values()
         self._log_retrieved_docs(unique, "Candidates before rerank")
 
-        # 4. Lightweight reranking with LLM
+        # 5. Lightweight reranking with LLM
         ranked = []
         for doc in unique:
             try:
                 score_chain = RERANK_PROMPT | _llm | StrOutputParser()
-                raw_score = score_chain.invoke({
-                    "question": question,
-                    "content": doc.content
-                }).strip()
+                raw_score = score_chain.invoke(
+                    {"question": question, "content": doc.content}
+                ).strip()
                 score = int(raw_score) if raw_score.isdigit() else 5
                 ranked.append((score, doc))
             except Exception as e:
@@ -226,7 +295,8 @@ class AIService:
             f"Year: {instance.book.publication_year or 'unknown'}. "
             f"Status: {instance.status}. "
             f"Rating: {instance.rating or 'None'}. "
-            f"Notes: {instance.notes or 'No notes'}."
+            f"Notes: {instance.notes or 'No notes'}. "
+            f"Last updated: {instance.date_updated.strftime('%Y-%m-%d %H:%M') if instance.date_updated else 'unknown'}."
         )
 
         vector = _embed_text(doc_text)
@@ -239,4 +309,6 @@ class AIService:
                 "embedding": vector,
             },
         )
-        logger.info("Upserted embedding for UserBook %s (user=%s)", instance.id, self.user.id)
+        logger.info(
+            "Upserted embedding for UserBook %s (user=%s)", instance.id, self.user.id
+        )
