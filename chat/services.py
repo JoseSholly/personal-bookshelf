@@ -88,6 +88,31 @@ Output ONLY the score as integer.""",
     ]
 )
 
+INTENT_CLASSIFICATION_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """You are an intent classifier for a personal bookshelf assistant.
+Determine if the user's message is:
+1. "small_talk": General greetings (e.g., "hi", "hello", "how are you"), compliments, or chit-chat unrelated to books.
+2. "bookshelf_query": Questions about books, reading history, recommendations, genres, authors, etc.
+
+Output EXACTLY one of these two strings and nothing else: 'small_talk' or 'bookshelf_query'."""
+        ),
+        ("human", "{question}"),
+    ]
+)
+
+SMALL_TALK_PROMPT = PromptTemplate.from_template(
+    """You are a friendly, concise book companion. 
+The user is making small talk or saying a greeting.
+Respond politely and briefly (1-2 sentences), and gently steer the conversation back to books, asking if they need reading recommendations or help with their bookshelf.
+
+User: {question}
+
+Response:"""
+)
+
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
 
@@ -108,6 +133,18 @@ class AIService:
     def __init__(self, user):
         self.user = user
 
+    def _classify_intent(self, question: str) -> str:
+        """Classify if the question is small talk or a bookshelf query."""
+        try:
+            chain = INTENT_CLASSIFICATION_PROMPT | _llm | StrOutputParser()
+            intent = chain.invoke({"question": question}).strip().lower()
+            if "small_talk" in intent:
+                return "small_talk"
+            return "bookshelf_query"
+        except Exception as e:
+            logger.error(f"Intent classification failed: {e}")
+            return "bookshelf_query"  # Fallback to standard flow
+
     def _log_retrieved_docs(self, docs: List, label: str = "Retrieved"):
         if not docs:
             logger.info(f"{label}: no documents found")
@@ -120,6 +157,7 @@ class AIService:
             dist_str = f"{distance:.4f}" if distance is not None else "—     "
 
             logger.debug(f"  {i}. distance={dist_str} | {doc.content[:180]}...")
+
     def _parse_status_filter(self, question: str) -> Optional[str]:
         q = question.lower()
         # Check more specific phrases first to avoid substring collisions
@@ -266,6 +304,16 @@ class AIService:
 
     def ask(self, question: str) -> str:
         """Process the user's question and return a single answer."""
+        intent = self._classify_intent(question)
+        
+        if intent == "small_talk":
+            chain = SMALL_TALK_PROMPT | _llm | StrOutputParser()
+            try:
+                return chain.invoke({"question": question})
+            except Exception as e:
+                logger.error(f"Small talk generation failed: {e}", exc_info=True)
+                return "Hello! I'm your book companion. How can I help you with your reading today?"
+
         context = self.get_context(question)
         chain = RETRIEVAL_PROMPT | _llm | StrOutputParser()
         try:
@@ -277,6 +325,19 @@ class AIService:
 
     def stream_ask(self, question: str):
         """Stream the answer token by token."""
+        intent = self._classify_intent(question)
+        
+        if intent == "small_talk":
+            chain = SMALL_TALK_PROMPT | _llm
+            try:
+                for chunk in chain.stream({"question": question}):
+                    yield chunk.content
+                return
+            except Exception as e:
+                logger.error(f"Streaming small talk failed: {e}")
+                yield "Hello! How can I help you with your books today?"
+                return
+
         context = self.get_context(question)
         chain = RETRIEVAL_PROMPT | _llm
         try:

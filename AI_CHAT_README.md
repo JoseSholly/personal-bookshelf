@@ -77,12 +77,14 @@ _llm = ChatGoogleGenerativeAI(
 )
 ```
 
-### 3. Context Retrieval — Advanced RAG Pipeline
+### 3. Query Flow — Advanced RAG Pipeline
 
-`get_context(question, k=6)` implements a multi-stage retrieval strategy:
+The query implements a multi-stage strategy. First, within `ask` and `stream_ask`, an intent classifier bypasses retrieval entirely for small talk. If it's a bookshelf query, `get_context(question, k=6)` handles the actual retrieval:
 
 ```
 Question
+  │
+  ├─ Is it small talk? ─────────YES──► Respond directly (bypass RAG)
   │
   ├─ Is it a recency question?  ──YES──► Sort by date_updated (metadata, not vector)
   │  (last read / most recent / just finished …)
@@ -106,7 +108,11 @@ Question
              Return top k docs
 ```
 
-#### 3a. Recency Short-circuit
+#### 3a. Intent Classification (Small Talk)
+
+Before executing semantic search, `_classify_intent(question)` uses `INTENT_CLASSIFICATION_PROMPT` to check if the user is making general conversation or greetings (`small_talk`). If true, the system skips all database queries and responds using a lightweight `SMALL_TALK_PROMPT` to gently steer the user back to their books.
+
+#### 3b. Recency Short-circuit
 
 Questions that mention phrases like *"last read"*, *"most recent"*, *"just finished"* etc. are detected by `_is_recency_query()` and bypass vector search entirely:
 
@@ -124,7 +130,7 @@ if self._is_recency_query(question):
 
 > Vector search cannot answer *"which was last?"* because recency is a metadata property, not a semantic concept.
 
-#### 3b. Query Rewriting
+#### 3c. Query Rewriting
 
 The `QUERY_REWRITE_PROMPT` asks the LLM to expand the user's question into 2–3 keyword-rich variants tuned for semantic search (focusing on status, genre, rating, `date_updated`, author, title):
 
@@ -134,7 +140,7 @@ rewritten = rewrite_chain.invoke({"question": question})
 queries = [q.strip() for q in rewritten.split("\n") if q.strip()][:3]
 ```
 
-#### 3c. Vector Search with Filters
+#### 3d. Vector Search with Filters
 
 For each rewritten query, a `CosineDistance` search is run against the user's own `BookEmbedding` rows (user isolation is enforced at the ORM level):
 
@@ -150,7 +156,7 @@ for q in queries:
 - Status and genre filters are applied to the base queryset **before** the vector search.
 - Retrieving `12` candidates per query (over-retrieval) ensures the reranker has enough material to work with.
 
-#### 3d. LLM Reranking
+#### 3e. LLM Reranking
 
 Each unique candidate is scored 0–10 for relevance to the original question using `RERANK_PROMPT`:
 
