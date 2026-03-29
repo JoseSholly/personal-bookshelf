@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from pgvector.django import VectorField
+import os
 
 
 class Book(models.Model):
@@ -33,3 +35,31 @@ class UserBook(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.book.title} ({self.status})"
+
+
+class BookEmbedding(models.Model):
+    """Stores pgvector embeddings for a user's books.
+
+    One row per UserBook — upserted whenever the UserBook changes.
+    The vector dimension (768) matches gemini-embedding-001 output.
+    """
+
+    user_book = models.OneToOneField(
+        UserBook,
+        on_delete=models.CASCADE,
+        related_name="embedding",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="book_embeddings",
+    )
+    content = models.TextField(help_text="The plain-text that was embedded.")
+    embedding = VectorField(dimensions=os.getenv("EMBEDDING_DIMENSIONS", 768))
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = []  # IVFFlat / HNSW index added in migration for production
+
+    def __str__(self):
+        return f"Embedding: {self.user_book}"

@@ -2,6 +2,9 @@ from django.http import JsonResponse, StreamingHttpResponse
 from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from .services import AIService
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ChatAPIView(LoginRequiredMixin, View):
@@ -14,6 +17,7 @@ class ChatAPIView(LoginRequiredMixin, View):
             ai_service = AIService(request.user)
             answer_text = ai_service.ask(question)
         except Exception as e:
+            logger.error(e)
             return JsonResponse({"error": str(e)}, status=500)
 
         # Use streaming response
