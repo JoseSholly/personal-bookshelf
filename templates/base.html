@@ -7,8 +7,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{% block title %}Personal Bookshelf{% endblock %}</title>
 
-    <!-- Tailwind CSS v4 CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind CSS v4 CDN (typography plugin powers rendered markdown in chat) -->
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -32,6 +32,12 @@
             }
         }
     </script>
+
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
 
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@2.0.1"></script>

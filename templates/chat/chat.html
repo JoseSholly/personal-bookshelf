@@ -26,31 +26,67 @@
 
             <!-- Heading -->
             <h1 class="text-3xl font-semibold text-gray-900 mb-2 text-center">How can I help you today?</h1>
-            <p class="text-gray-500 mb-8 text-center max-w-lg">Ask me anything about your books, reading progress,
-                recommendations, or nutrition for your mind.</p>
+            <p class="text-gray-500 mb-8 text-center max-w-lg">
+                {% if chat_stats.total %}
+                You're tracking {{ chat_stats.total }} book{{ chat_stats.total|pluralize }}{% if chat_stats.reading %},
+                {{ chat_stats.reading }} in progress{% endif %}. Ask me anything about your shelf.
+                {% else %}
+                Your shelf is empty — ask for recommendations to get started, or anything about books.
+                {% endif %}
+            </p>
 
             <!-- Suggestions Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl px-4">
-                <button type="button" onclick="fillInput('Suggest a fantasy book')"
+                {% if chat_stats.current_book %}
+                <button type="button"
+                    onclick="fillInput('Tell me more about {{ chat_stats.current_book|escapejs }}')"
                     class="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left text-gray-700 text-sm shadow-sm group">
-                    <span>Suggest a fantasy book</span>
-                    <span class="text-xl group-hover:scale-110 transition-transform">🧙‍♂️</span>
+                    <span class="truncate pr-2">About "{{ chat_stats.current_book|truncatechars:28 }}"</span>
+                    <span class="text-xl group-hover:scale-110 transition-transform">📖</span>
                 </button>
-                <button type="button" onclick="fillInput('How many books have I read?')"
+                {% endif %}
+                {% if chat_stats.want_to_read %}
+                <button type="button" onclick="fillInput('What should I read next from my want-to-read list?')"
                     class="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left text-gray-700 text-sm shadow-sm group">
-                    <span>What's my reading progress?</span>
-                    <span class="text-xl group-hover:scale-110 transition-transform">📊</span>
+                    <span>What should I read next?</span>
+                    <span class="text-xl group-hover:scale-110 transition-transform">🔖</span>
                 </button>
+                {% endif %}
+                {% if chat_stats.read %}
                 <button type="button" onclick="fillInput('Summarize my last read')"
                     class="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left text-gray-700 text-sm shadow-sm group">
                     <span>Summarize my last read</span>
                     <span class="text-xl group-hover:scale-110 transition-transform">📝</span>
+                </button>
+                {% endif %}
+                {% if chat_stats.total %}
+                <button type="button" onclick="fillInput('Recommend a book based on my reading taste')"
+                    class="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left text-gray-700 text-sm shadow-sm group">
+                    <span>Recommend something for me</span>
+                    <span class="text-xl group-hover:scale-110 transition-transform">✨</span>
+                </button>
+                <button type="button" onclick="fillInput('How is my reading progress so far?')"
+                    class="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left text-gray-700 text-sm shadow-sm group">
+                    <span>What's my reading progress?</span>
+                    <span class="text-xl group-hover:scale-110 transition-transform">📊</span>
+                </button>
+                {% else %}
+                <button type="button" onclick="fillInput('Suggest a fantasy book')"
+                    class="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left text-gray-700 text-sm shadow-sm group">
+                    <span>Suggest a fantasy book</span>
+                    <span class="text-xl group-hover:scale-110 transition-transform">🧙‍♂️</span>
                 </button>
                 <button type="button" onclick="fillInput('Recommend a classic novel')"
                     class="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left text-gray-700 text-sm shadow-sm group">
                     <span>Recommend a classic novel</span>
                     <span class="text-xl group-hover:scale-110 transition-transform">🏛️</span>
                 </button>
+                <button type="button" onclick="fillInput('What genres should I explore?')"
+                    class="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left text-gray-700 text-sm shadow-sm group">
+                    <span>What genres should I explore?</span>
+                    <span class="text-xl group-hover:scale-110 transition-transform">🧭</span>
+                </button>
+                {% endif %}
             </div>
         </div>
 

@@ -5,10 +5,22 @@ from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
 
 
+INPUT_CLASS = (
+    "block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 "
+    "placeholder-gray-400 shadow-sm focus:border-accent-600 focus:outline-none "
+    "focus:ring-accent-600 sm:text-sm transition-colors"
+)
+
+
 class EmailSignUpForm(UserCreationForm):
     class Meta:
         model = User
         fields = ("email",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = INPUT_CLASS
 
     def clean_email(self):
         email = self.cleaned_data.get("email")

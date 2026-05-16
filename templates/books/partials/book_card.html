@@ -1,5 +1,9 @@
 <div
-    class="group relative flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white transition-all hover:shadow-md">
+    class="group relative flex flex-col overflow-hidden rounded-lg border bg-white transition-all hover:shadow-md
+        {% if book.user_status == 'reading' %}border-gray-200 border-l-4 border-l-blue-500
+        {% elif book.user_status == 'read' %}border-gray-200 border-l-4 border-l-green-500
+        {% elif book.user_status == 'want_to_read' %}border-gray-200 border-l-4 border-l-yellow-500
+        {% else %}border-gray-200{% endif %}">
     <div class="aspect-h-4 aspect-w-3 bg-gray-200 sm:aspect-none group-hover:opacity-75 sm:h-64">
         {% if book.cover_image %}
         <img src="{{ book.cover_image.url }}" alt="{{ book.title }}"

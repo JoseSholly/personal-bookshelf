@@ -1,7 +1,8 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="space-y-6" x-data="{ view: localStorage.getItem('shelfView') || 'table' }"
+    x-init="$watch('view', v => localStorage.setItem('shelfView', v))">
     <div class="md:flex md:items-center md:justify-between">
         <div class="min-w-0 flex-1">
             <h2 class="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
@@ -11,15 +12,84 @@
                 Review and manage your personal reading list.
             </p>
         </div>
-        <div class="mt-4 flex md:ml-4 md:mt-0">
+        <div class="mt-4 flex items-center gap-3 md:ml-4 md:mt-0">
+            {% if user_books %}
+            <div class="inline-flex rounded-md shadow-sm ring-1 ring-inset ring-gray-300">
+                <button type="button" @click="view = 'table'"
+                    :class="view === 'table' ? 'bg-accent-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                    class="rounded-l-md px-3 py-2 text-sm font-medium transition-colors" aria-label="Table view">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                    </svg>
+                </button>
+                <button type="button" @click="view = 'grid'"
+                    :class="view === 'grid' ? 'bg-accent-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+                    class="rounded-r-md px-3 py-2 text-sm font-medium transition-colors" aria-label="Grid view">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                    </svg>
+                </button>
+            </div>
+            {% endif %}
             <a href="{% url 'book_list' %}"
-                class="ml-3 inline-flex items-center rounded-md bg-accent-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-accent-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600">
+                class="inline-flex items-center rounded-md bg-accent-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-accent-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600">
                 Browse Library to Add
             </a>
         </div>
     </div>
 
-    <div class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
+    {% if user_books %}
+    <!-- Grid view -->
+    <div x-show="view === 'grid'" x-cloak
+        class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {% for item in user_books %}
+        <div class="group cursor-pointer rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:shadow-md
+                {% if item.status == 'reading' %}border-l-4 border-l-blue-500
+                {% elif item.status == 'read' %}border-l-4 border-l-green-500
+                {% else %}border-l-4 border-l-yellow-500{% endif %}"
+            hx-get="{% url 'edit_user_book' item.id %}" hx-target="#modal-container" hx-trigger="click">
+            <div class="flex items-start gap-3">
+                {% if item.book.cover_image %}
+                <img class="h-14 w-10 flex-shrink-0 rounded object-cover" src="{{ item.book.cover_image.url }}"
+                    alt="{{ item.book.title }}">
+                {% else %}
+                <div
+                    class="flex h-14 w-10 flex-shrink-0 items-center justify-center rounded bg-accent-100 text-lg font-bold text-accent-600">
+                    {{ item.book.title|slice:":1" }}
+                </div>
+                {% endif %}
+                <div class="min-w-0 flex-1">
+                    <h3 class="truncate text-sm font-semibold text-gray-900">{{ item.book.title }}</h3>
+                    <p class="truncate text-sm text-gray-500">{{ item.book.author }}</p>
+                </div>
+            </div>
+            <div class="mt-4 flex items-center justify-between">
+                <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                    {% if item.status == 'read' %}bg-green-100 text-green-800
+                    {% elif item.status == 'reading' %}bg-accent-100 text-accent-800
+                    {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                    {{ item.get_status_display }}
+                </span>
+                <div class="flex text-yellow-400">
+                    {% for i in "12345" %}
+                    <svg class="h-4 w-4 {% if forloop.counter <= item.rating %}fill-current{% else %}text-gray-200 fill-current{% endif %}"
+                        viewBox="0 0 20 20">
+                        <path
+                            d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                    {% endfor %}
+                </div>
+            </div>
+            <p class="mt-3 text-xs text-gray-400">Updated {{ item.date_updated|date:"M d, Y" }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div {% if user_books %}x-show="view === 'table'" x-cloak{% endif %}
+        class="bg-white shadow-sm ring-1 ring-gray-900/5 sm:rounded-xl overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-300">
                 <thead class="bg-gray-50">
