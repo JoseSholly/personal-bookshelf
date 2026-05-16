@@ -26,31 +26,67 @@
 
             <!-- Heading -->
             <h1 class="text-3xl font-semibold text-gray-900 mb-2 text-center">How can I help you today?</h1>
-            <p class="text-gray-500 mb-8 text-center max-w-lg">Ask me anything about your books, reading progress,
-                recommendations, or nutrition for your mind.</p>
+            <p class="text-gray-500 mb-8 text-center max-w-lg">
+                {% if chat_stats.total %}
+                You're tracking {{ chat_stats.total }} book{{ chat_stats.total|pluralize }}{% if chat_stats.reading %},
+                {{ chat_stats.reading }} in progress{% endif %}. Ask me anything about your shelf.
+                {% else %}
+                Your shelf is empty — ask for recommendations to get started, or anything about books.
+                {% endif %}
+            </p>
 
             <!-- Suggestions Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl px-4">
-                <button type="button" onclick="fillInput('Suggest a fantasy book')"
-                    class="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left text-gray-700 text-sm shadow-sm group">
-                    <span>Suggest a fantasy book</span>
-                    <span class="text-xl group-hover:scale-110 transition-transform">🧙‍♂️</span>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-2xl px-4">
+                {% if chat_stats.current_book %}
+                <button type="button"
+                    onclick="fillInput('Tell me more about {{ chat_stats.current_book|escapejs }}')"
+                    class="group flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white p-4 text-left text-sm text-gray-700 transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50">
+                    <span class="truncate">About &ldquo;{{ chat_stats.current_book|truncatechars:28 }}&rdquo;</span>
+                    <span class="text-gray-300 transition-colors duration-150 group-hover:text-accent-600">&rarr;</span>
                 </button>
-                <button type="button" onclick="fillInput('How many books have I read?')"
-                    class="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left text-gray-700 text-sm shadow-sm group">
-                    <span>What's my reading progress?</span>
-                    <span class="text-xl group-hover:scale-110 transition-transform">📊</span>
+                {% endif %}
+                {% if chat_stats.want_to_read %}
+                <button type="button" onclick="fillInput('What should I read next from my want-to-read list?')"
+                    class="group flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white p-4 text-left text-sm text-gray-700 transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50">
+                    <span>What should I read next?</span>
+                    <span class="text-gray-300 transition-colors duration-150 group-hover:text-accent-600">&rarr;</span>
                 </button>
+                {% endif %}
+                {% if chat_stats.read %}
                 <button type="button" onclick="fillInput('Summarize my last read')"
-                    class="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left text-gray-700 text-sm shadow-sm group">
+                    class="group flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white p-4 text-left text-sm text-gray-700 transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50">
                     <span>Summarize my last read</span>
-                    <span class="text-xl group-hover:scale-110 transition-transform">📝</span>
+                    <span class="text-gray-300 transition-colors duration-150 group-hover:text-accent-600">&rarr;</span>
+                </button>
+                {% endif %}
+                {% if chat_stats.total %}
+                <button type="button" onclick="fillInput('Recommend a book based on my reading taste')"
+                    class="group flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white p-4 text-left text-sm text-gray-700 transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50">
+                    <span>Recommend something for me</span>
+                    <span class="text-gray-300 transition-colors duration-150 group-hover:text-accent-600">&rarr;</span>
+                </button>
+                <button type="button" onclick="fillInput('How is my reading progress so far?')"
+                    class="group flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white p-4 text-left text-sm text-gray-700 transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50">
+                    <span>What's my reading progress?</span>
+                    <span class="text-gray-300 transition-colors duration-150 group-hover:text-accent-600">&rarr;</span>
+                </button>
+                {% else %}
+                <button type="button" onclick="fillInput('Suggest a fantasy book')"
+                    class="group flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white p-4 text-left text-sm text-gray-700 transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50">
+                    <span>Suggest a fantasy book</span>
+                    <span class="text-gray-300 transition-colors duration-150 group-hover:text-accent-600">&rarr;</span>
                 </button>
                 <button type="button" onclick="fillInput('Recommend a classic novel')"
-                    class="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-left text-gray-700 text-sm shadow-sm group">
+                    class="group flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white p-4 text-left text-sm text-gray-700 transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50">
                     <span>Recommend a classic novel</span>
-                    <span class="text-xl group-hover:scale-110 transition-transform">🏛️</span>
+                    <span class="text-gray-300 transition-colors duration-150 group-hover:text-accent-600">&rarr;</span>
                 </button>
+                <button type="button" onclick="fillInput('What genres should I explore?')"
+                    class="group flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white p-4 text-left text-sm text-gray-700 transition-colors duration-150 hover:border-gray-300 hover:bg-gray-50">
+                    <span>What genres should I explore?</span>
+                    <span class="text-gray-300 transition-colors duration-150 group-hover:text-accent-600">&rarr;</span>
+                </button>
+                {% endif %}
             </div>
         </div>
 
@@ -59,25 +95,8 @@
             <!-- Messages will be inserted here -->
         </div>
 
-        <!-- AI Thinking Indicator / Swap Target -->
-        <div id="ai-thinking" class="htmx-indicator flex justify-start pb-6">
-            <div class="flex max-w-[90%] md:max-w-2xl flex-row gap-x-3">
-                <div
-                    class="flex-shrink-0 h-8 w-8 rounded-full bg-accent-100 flex items-center justify-center text-accent-600 animate-pulse">
-                    <img src="{% static 'images/shelf-logo.png' %}" alt="AI" class="h-5 w-5">
-                </div>
-                <div
-                    class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm ring-1 ring-gray-200 text-sm text-gray-500">
-                    <div class="flex space-x-1">
-                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s">
-                        </div>
-                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s">
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Insertion anchor for streamed messages -->
+        <div id="ai-thinking" class="hidden"></div>
 
     </div>
 
@@ -177,18 +196,16 @@
                     <div class="flex-shrink-0 h-8 w-8 rounded-full bg-accent-100 flex items-center justify-center text-accent-600">
                         <img src="{% static 'images/shelf-logo.png' %}" alt="AI" class="h-5 w-5">
                     </div>
-                    <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm ring-1 ring-gray-200 text-sm text-gray-900 prose prose-sm max-w-none prose-p:my-0 prose-ul:my-0 prose-li:my-0">
-                        <span class="animate-pulse">...</span>
-                    </div>
+                    <div class="stream-caret bg-white p-4 rounded-2xl rounded-tl-none shadow-sm ring-1 ring-gray-200 text-sm text-gray-900 prose prose-sm max-w-none prose-p:my-0 prose-ul:my-0 prose-li:my-0"></div>
                 </div>
             </div>`;
 
         indicator.insertAdjacentHTML('beforebegin', aiMessageHtml);
         scrollToBottom();
 
-        const aiBubbleContent = document.querySelector(`#${aiMessageId} .prose`);
+        const aiBubble = document.querySelector(`#${aiMessageId} .prose`);
 
-        // 3. Start JSON Fetch
+        // 3. Stream the response token by token
         try {
             const response = await fetch("{% url 'chat_api' %}", {
                 method: "POST",
@@ -200,38 +217,49 @@
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                // Try to parse error as JSON if possible
+                let msg = "Network response was not ok";
                 try {
-                    const errorJson = JSON.parse(errorText);
-                    if (errorJson.error) throw new Error(errorJson.error);
-                } catch (e) {
-                    // Ignore JSON parse error, use text
+                    const data = await response.json();
+                    if (data && data.error) msg = data.error;
+                } catch (_) { /* response was not JSON */ }
+                throw new Error(msg);
+            }
+
+            if (!response.body) {
+                throw new Error("Streaming is not supported by this browser.");
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let renderQueued = false;
+
+            const render = () => {
+                renderQueued = false;
+                aiBubble.innerHTML = marked.parse(buffer);
+                scrollToBottom();
+            };
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                if (!renderQueued) {
+                    renderQueued = true;
+                    requestAnimationFrame(render);
                 }
-                throw new Error(errorText || "Network response was not ok");
             }
 
-            // Normal JSON Response Handling
-            const data = await response.json();
-
-            if (data.error) {
-                throw new Error(data.error);
-            }
-
-            aiBubbleContent.innerHTML = ""; // Clear loader
-            aiBubbleContent.innerHTML = marked.parse(data.answer);
+            buffer += decoder.decode(); // flush any trailing bytes
+            aiBubble.innerHTML = marked.parse(buffer);
+            aiBubble.classList.remove("stream-caret");
             scrollToBottom();
 
-            /* Streaming Logic (Commented Out)
-            if (!response.body) {
-                throw new Error("ReadableStream not supported.");
-            }
-            // ... streaming code ...
-            */
-
         } catch (error) {
-            console.error("Fetch error:", error);
-            aiBubbleContent.innerHTML += `<p class="text-red-500 mt-2">Error: Could not complete response.</p>`;
+            console.error("Stream error:", error);
+            aiBubble.classList.remove("stream-caret");
+            aiBubble.innerHTML +=
+                `<p class="text-red-600 mt-2">Sorry, something went wrong: ${escapeHtml(error.message || "unknown error")}</p>`;
         }
     });
 

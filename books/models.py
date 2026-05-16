@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from pgvector.django import VectorField
+from pgvector.django import VectorField, IvfflatIndex
 import os
 
 
@@ -59,7 +59,14 @@ class BookEmbedding(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        indexes = []  # IVFFlat / HNSW index added in migration for production
+        indexes = [
+            IvfflatIndex(
+                fields=["embedding"],
+                name="bookembedding_embedding_ivfflat",
+                lists=100,
+                opclasses=["vector_cosine_ops"],
+            )
+        ]
 
     def __str__(self):
         return f"Embedding: {self.user_book}"

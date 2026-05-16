@@ -1,15 +1,36 @@
 import json
+from datetime import timedelta
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
 from django.views.generic import ListView, CreateView, TemplateView
 from django.views.decorators.http import require_http_methods
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 from accounts.forms import EmailSignUpForm
 from django.db.models import Avg, Subquery, OuterRef, CharField, Q
 from django.urls import reverse_lazy
 from .models import Book, UserBook
 from .forms import UserBookForm
+
+
+def _activity_streak(user_books) -> int:
+    """Consecutive days (ending today or yesterday) with shelf activity.
+
+    `UserBook.date_updated` is auto_now, so each entry contributes its last
+    touch date — a reasonable proxy for "days the user was active".
+    """
+    active_days = set(user_books.values_list("date_updated__date", flat=True))
+    if not active_days:
+        return 0
+
+    today = timezone.localdate()
+    cursor = today if today in active_days else today - timedelta(days=1)
+    streak = 0
+    while cursor in active_days:
+        streak += 1
+        cursor -= timedelta(days=1)
+    return streak
 
 
 class HomeView(TemplateView):
@@ -25,7 +46,7 @@ class HomeView(TemplateView):
                 "avg_rating": round(
                     user_books.aggregate(Avg("rating"))["rating__avg"] or 0, 1
                 ),
-                "streak": 0,  # Placeholder for now
+                "streak": _activity_streak(user_books),
             }
         return context
 
@@ -63,7 +84,10 @@ class BookListView(ListView):
         return queryset
 
     def get_template_names(self):
-        if self.request.headers.get("HX-Request") and not self.request.GET.get("q"):
+        # Infinite-scroll requests carry ?page=N and append the bare card list.
+        # Search requests (live, possibly empty q) need the full template so
+        # HTMX can hx-select #book-grid from the response.
+        if self.request.headers.get("HX-Request") and self.request.GET.get("page"):
             return ["books/partials/book_list_elements.html"]
         return ["books/book_list.html"]
 
