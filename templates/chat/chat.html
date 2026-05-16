@@ -95,25 +95,8 @@
             <!-- Messages will be inserted here -->
         </div>
 
-        <!-- AI Thinking Indicator / Swap Target -->
-        <div id="ai-thinking" class="htmx-indicator flex justify-start pb-6">
-            <div class="flex max-w-[90%] md:max-w-2xl flex-row gap-x-3">
-                <div
-                    class="flex-shrink-0 h-8 w-8 rounded-full bg-accent-100 flex items-center justify-center text-accent-600 animate-pulse">
-                    <img src="{% static 'images/shelf-logo.png' %}" alt="AI" class="h-5 w-5">
-                </div>
-                <div
-                    class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm ring-1 ring-gray-200 text-sm text-gray-500">
-                    <div class="flex space-x-1">
-                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s">
-                        </div>
-                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s">
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Insertion anchor for streamed messages -->
+        <div id="ai-thinking" class="hidden"></div>
 
     </div>
 
@@ -213,18 +196,16 @@
                     <div class="flex-shrink-0 h-8 w-8 rounded-full bg-accent-100 flex items-center justify-center text-accent-600">
                         <img src="{% static 'images/shelf-logo.png' %}" alt="AI" class="h-5 w-5">
                     </div>
-                    <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm ring-1 ring-gray-200 text-sm text-gray-900 prose prose-sm max-w-none prose-p:my-0 prose-ul:my-0 prose-li:my-0">
-                        <span class="animate-pulse">...</span>
-                    </div>
+                    <div class="stream-caret bg-white p-4 rounded-2xl rounded-tl-none shadow-sm ring-1 ring-gray-200 text-sm text-gray-900 prose prose-sm max-w-none prose-p:my-0 prose-ul:my-0 prose-li:my-0"></div>
                 </div>
             </div>`;
 
         indicator.insertAdjacentHTML('beforebegin', aiMessageHtml);
         scrollToBottom();
 
-        const aiBubbleContent = document.querySelector(`#${aiMessageId} .prose`);
+        const aiBubble = document.querySelector(`#${aiMessageId} .prose`);
 
-        // 3. Start JSON Fetch
+        // 3. Stream the response token by token
         try {
             const response = await fetch("{% url 'chat_api' %}", {
                 method: "POST",
@@ -236,38 +217,49 @@
             });
 
             if (!response.ok) {
-                const errorText = await response.text();
-                // Try to parse error as JSON if possible
+                let msg = "Network response was not ok";
                 try {
-                    const errorJson = JSON.parse(errorText);
-                    if (errorJson.error) throw new Error(errorJson.error);
-                } catch (e) {
-                    // Ignore JSON parse error, use text
+                    const data = await response.json();
+                    if (data && data.error) msg = data.error;
+                } catch (_) { /* response was not JSON */ }
+                throw new Error(msg);
+            }
+
+            if (!response.body) {
+                throw new Error("Streaming is not supported by this browser.");
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+            let renderQueued = false;
+
+            const render = () => {
+                renderQueued = false;
+                aiBubble.innerHTML = marked.parse(buffer);
+                scrollToBottom();
+            };
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                if (!renderQueued) {
+                    renderQueued = true;
+                    requestAnimationFrame(render);
                 }
-                throw new Error(errorText || "Network response was not ok");
             }
 
-            // Normal JSON Response Handling
-            const data = await response.json();
-
-            if (data.error) {
-                throw new Error(data.error);
-            }
-
-            aiBubbleContent.innerHTML = ""; // Clear loader
-            aiBubbleContent.innerHTML = marked.parse(data.answer);
+            buffer += decoder.decode(); // flush any trailing bytes
+            aiBubble.innerHTML = marked.parse(buffer);
+            aiBubble.classList.remove("stream-caret");
             scrollToBottom();
 
-            /* Streaming Logic (Commented Out)
-            if (!response.body) {
-                throw new Error("ReadableStream not supported.");
-            }
-            // ... streaming code ...
-            */
-
         } catch (error) {
-            console.error("Fetch error:", error);
-            aiBubbleContent.innerHTML += `<p class="text-red-500 mt-2">Error: Could not complete response.</p>`;
+            console.error("Stream error:", error);
+            aiBubble.classList.remove("stream-caret");
+            aiBubble.innerHTML +=
+                `<p class="text-red-600 mt-2">Sorry, something went wrong: ${escapeHtml(error.message || "unknown error")}</p>`;
         }
     });
 

@@ -38,17 +38,23 @@ class ChatAPIView(LoginRequiredMixin, View):
         if not question:
             return JsonResponse({"error": "No question"}, status=400)
 
-        try:
-            ai_service = AIService(request.user)
-            answer_text = ai_service.ask(question)
-        except Exception as e:
-            logger.error(e)
-            return JsonResponse({"error": str(e)}, status=500)
+        ai_service = AIService(request.user)
 
-        # Use streaming response
-        # response = StreamingHttpResponse(
-        #     ai_service.stream_ask(question), content_type="text/plain"
-        # )
-        # return response
+        def token_stream():
+            try:
+                for token in ai_service.stream_ask(question):
+                    if token:
+                        yield token
+            except Exception as e:
+                # Headers are already sent at this point, so the error has to
+                # be delivered in-band as part of the streamed body.
+                logger.error("Streaming failed: %s", e, exc_info=True)
+                yield "\n\nSorry, I couldn't complete that response."
 
-        return JsonResponse({"answer": answer_text})
+        response = StreamingHttpResponse(
+            token_stream(), content_type="text/plain; charset=utf-8"
+        )
+        # Defeat proxy/server buffering so tokens reach the client immediately.
+        response["Cache-Control"] = "no-cache"
+        response["X-Accel-Buffering"] = "no"
+        return response
