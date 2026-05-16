@@ -7,26 +7,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{% block title %}Personal Bookshelf{% endblock %}</title>
 
+    <!-- Library type: display serif for headings, humanist sans for UI -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
     <!-- Tailwind CSS v4 CDN (typography plugin powers rendered markdown in chat) -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        serif: ['"Libre Caslon Text"', 'Georgia', 'Cambria', 'serif'],
+                    },
                     colors: {
+                        // Oxblood — the single accent (primary actions, links, active state)
                         accent: {
-                            50: '#eef2ff',
-                            100: '#e0e7ff',
-                            200: '#c7d2fe',
-                            300: '#a5b4fc',
-                            400: '#818cf8',
-                            500: '#6366f1',
-                            600: '#4f46e5',
-                            700: '#4338ca',
-                            800: '#3730a3',
-                            900: '#312e81',
-                            950: '#1e1b4b',
-                        }
+                            50: '#fdf3f4',
+                            100: '#f8e4e7',
+                            200: '#eec6cd',
+                            300: '#dd9ba8',
+                            400: '#c4677c',
+                            500: '#a3475c',
+                            600: '#6b2737',
+                            700: '#591f2d',
+                            800: '#491a25',
+                            900: '#3c161f',
+                            950: '#250d12',
+                        },
+                        // Warm paper / ink — replaces Tailwind's cool gray everywhere
+                        gray: {
+                            50: '#faf8f3',
+                            100: '#f2eee5',
+                            200: '#e4ded0',
+                            300: '#cfc7b5',
+                            400: '#a39a86',
+                            500: '#6f6757',
+                            600: '#564f41',
+                            700: '#423d31',
+                            800: '#2e2a22',
+                            900: '#1f1c18',
+                            950: '#14110e',
+                        },
                     }
                 }
             }
@@ -34,8 +60,62 @@
     </script>
 
     <style>
+        :root {
+            --font-serif: "Libre Caslon Text", Georgia, Cambria, serif;
+        }
+
+        h1,
+        h2,
+        h3,
+        .book-title {
+            font-family: var(--font-serif);
+        }
+
+        .book-title {
+            font-style: italic;
+        }
+
         [x-cloak] {
             display: none !important;
+        }
+
+        /* Minimal entrance — used by chat messages */
+        .fade-in {
+            animation: fadeIn .15s ease-out both;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* Streaming cursor */
+        .stream-caret::after {
+            content: '▍';
+            margin-left: 1px;
+            animation: blink 1s steps(1) infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                animation-duration: .001ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: .001ms !important;
+            }
         }
     </style>
 
@@ -48,7 +128,7 @@
     {% block extra_head %}{% endblock %}
 </head>
 
-<body class="min-h-screen bg-gray-50 text-gray-900 antialiased" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+<body class="min-h-screen bg-gray-50 text-gray-900 antialiased font-sans" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     {% block navbar %}
     <!-- Top Navigation -->
     <header class="border-b border-gray-200 bg-white" x-data="{ mobileMenuOpen: false }">
@@ -186,14 +266,14 @@
             <div class="flex items-start">
                 <div class="flex-shrink-0">
                     <template x-if="type === 'success'">
-                        <svg class="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        <svg class="h-6 w-6 text-accent-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                             stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </template>
                     <template x-if="type === 'error'">
-                        <svg class="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                             stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round"
                                 d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />

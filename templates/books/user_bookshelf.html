@@ -45,10 +45,10 @@
     <div x-show="view === 'grid'" x-cloak
         class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {% for item in user_books %}
-        <div class="group cursor-pointer rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:shadow-md
-                {% if item.status == 'reading' %}border-l-4 border-l-blue-500
-                {% elif item.status == 'read' %}border-l-4 border-l-green-500
-                {% else %}border-l-4 border-l-yellow-500{% endif %}"
+        <div class="group cursor-pointer rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-colors duration-150 hover:shadow-md
+                {% if item.status == 'reading' %}border-l-4 border-l-accent-600
+                {% elif item.status == 'read' %}border-l-4 border-l-gray-900
+                {% else %}border-l-4 border-l-gray-300{% endif %}"
             hx-get="{% url 'edit_user_book' item.id %}" hx-target="#modal-container" hx-trigger="click">
             <div class="flex items-start gap-3">
                 {% if item.book.cover_image %}
@@ -61,18 +61,20 @@
                 </div>
                 {% endif %}
                 <div class="min-w-0 flex-1">
-                    <h3 class="truncate text-sm font-semibold text-gray-900">{{ item.book.title }}</h3>
+                    <h3 class="book-title truncate text-sm font-semibold text-gray-900">{{ item.book.title }}</h3>
                     <p class="truncate text-sm text-gray-500">{{ item.book.author }}</p>
                 </div>
             </div>
             <div class="mt-4 flex items-center justify-between">
-                <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-                    {% if item.status == 'read' %}bg-green-100 text-green-800
-                    {% elif item.status == 'reading' %}bg-accent-100 text-accent-800
-                    {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                <span
+                    class="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300">
+                    <span class="h-1.5 w-1.5 rounded-full
+                        {% if item.status == 'reading' %}bg-accent-600
+                        {% elif item.status == 'read' %}bg-gray-900
+                        {% else %}bg-gray-300{% endif %}"></span>
                     {{ item.get_status_display }}
                 </span>
-                <div class="flex text-yellow-400">
+                <div class="flex text-accent-600">
                     {% for i in "12345" %}
                     <svg class="h-4 w-4 {% if forloop.counter <= item.rating %}fill-current{% else %}text-gray-200 fill-current{% endif %}"
                         viewBox="0 0 20 20">
