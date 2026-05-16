@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  django:
+    name: Django checks & tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # pgvector image: migrations run CREATE EXTENSION vector + an IVFFlat index
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bookshelf
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DJANGO_SETTINGS_MODULE: bookshelf.settings.base
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/bookshelf
+      SECRET_KEY: ci-secret-key
+      DEBUG: "True"
+      # chat/services.py requires this at import time; the client is not
+      # constructed against the network so a placeholder is sufficient.
+      GOOGLE_API_KEY: ci-dummy-key
+      EMBEDDING_DIMENSIONS: "768"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: System check
+        run: python manage.py check
+
+      - name: Verify migrations are complete
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Apply migrations
+        run: python manage.py migrate --noinput
+
+      - name: Run tests
+        run: python manage.py test --verbosity 2
